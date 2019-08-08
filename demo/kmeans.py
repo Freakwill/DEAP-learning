@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import scipy.spatial.distance
+from sklearn.metrics import pairwise_distances
 from deap import base, creator, tools, algorithms
 
 from sklearn.cluster import KMeans
@@ -17,19 +17,25 @@ class GAKMeans(KMeans):
     Extends:
         KMeans
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, size=50, ngen=100, local_search = False, *args, **kwargs):
         super(GAKMeans, self).__init__(*args, **kwargs)
         self.n_clusters=kwargs['n_clusters']
+        self.local_search = local_search
+        self.size = size
+        self.ngen = ngen
 
     def config(self, X):
         # configuration for GA
         K = self.n_clusters
-        D = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(X))
+        # D = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(X))
         def evaluate(individual):
             W = 0
             for k in range(K):
-                ck = [g==k for g in individual]
-                Dk = scipy.spatial.distance.squareform(D[ck, :][:, ck])
+                Ck = [g==k for g in individual]
+                # Dk = scipy.spatial.distance.squareform(D[ck, :][:, ck])
+                Xk = X[Ck, :]
+                ck = Xk.mean(axis=0)
+                Dk = pairwise_distances(Xk, [ck])**2
                 W += Dk.sum()
             return W,
         IND_SIZE = X.shape[0]
@@ -47,8 +53,8 @@ class GAKMeans(KMeans):
         toolbox.register("evaluate", evaluate)
         
         def ga():
-            pop = toolbox.population(n=80)
-            pop, _= algorithms.eaSimple(pop, toolbox=toolbox, cxpb=0.5, mutpb=0.1, ngen=300, verbose=False)
+            pop = toolbox.population(n=self.size)
+            pop, _= algorithms.eaSimple(pop, toolbox=toolbox, cxpb=0.55, mutpb=0.1, ngen=self.ngen, verbose=False)
             return pop, _
         return ga
 

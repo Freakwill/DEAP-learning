@@ -6,7 +6,7 @@ from scipy.special import softmax
 from scipy.stats import entropy
 from deap import base, creator, tools, algorithms
 
-import numpy as np
+from utils import cxTwoPointCopy, cxTwoPoint2DArray
 
 from sklearn.neural_network import MLPClassifier
 
@@ -24,16 +24,17 @@ def u(x):
 
 
 class ANN(object):
-    '''[Summary for Class ANN]ANN has 2 (principal) propteries
-    m: m
-    n: n'''
-    def __init__(self, m, n, h=7):
+    '''
+    m: Input size
+    n: Output size
+    '''
+    def __init__(self, m, n, h=8):
         self.m = m
         self.n = n
         self.h = h
         self.layer1 = np.random.random((m, h))
         self.bias1 = np.random.random(h)
-        self.layer2 = np.random.random((h,n))
+        self.layer2 = np.random.randint(0, 2, (h,n))
         self.bias2 = np.random.random(n)
 
     def predict_prob(self, X):
@@ -64,55 +65,28 @@ class ANN(object):
 
 
     def mate(self, other):
-        k = np.random.randint(1, self.m-1)
-        self.layer1[:k], other.layer1[k:] = other.layer1[:k], self.layer1[k:]
-        k = np.random.randint(1, self.h-1)
-        self.layer1[:, :k], other.layer1[:, k:] = other.layer1[:, :k], self.layer1[:, k:]
-        k = np.random.randint(1, self.h-1)
-        self.bias1[:k], other.bias1[k:] = other.bias1[:k], self.bias1[k:]
-
-        k = np.random.randint(1, self.h-1)
-        self.layer2[:k], other.layer2[k:] = other.layer2[:k], self.layer2[k:]
-        k = np.random.randint(1, self.n-1)
-        self.layer2[:, :k], other.layer2[:, k:] = other.layer2[:, :k], self.layer2[:, k:]
-        k = np.random.randint(1, self.n-1)
-        self.bias2[:k], other.bias2[k:] = other.bias2[:k], self.bias2[k:]
+        self.layer1, other.layer1 = cxTwoPoint2DArray(other.layer1, self.layer1)
+        self.bias1, other.bias1 = cxTwoPointCopy(self.bias1, other.bias1)
+        self.layer2, other.layer2 = cxTwoPoint2DArray(self.layer2, other.layer2)
+        self.bias2, other.bias2 = cxTwoPointCopy(self.bias2, other.bias2)
 
         return self, other
 
-    def mutate(self, mu=0, sigma=0.1, indpb=0.05):
+    def mutate(self, mu=0, sigma=0.05, indpb=0.05):
         r, c = self.layer1.shape
         for i in range(r):
             for j in range(c):
                 if np.random.random() < indpb:
-                    self.layer1[i,j] += np.random.random() * sigma
-        for i in range(c):
-            if  np.random.random() < indpb:
-                self.bias1[i] +=  np.random.random() * sigma
+                    self.layer1[i,j] += np.random.rand() * sigma
+        self.bias1, = tools.mutGaussian(self.bias1, mu, sigma, indpb)
 
         r, c = self.layer2.shape
         for i in range(r):
             for j in range(c):
                 if np.random.random() < indpb:
-                    self.layer2[i,j] += np.random.random() * sigma
-        for i in range(c):
-            if  np.random.random() < indpb:
-                self.bias2[i] +=  np.random.random() * sigma
-
-        # for i in range(r):
-        #     for j in range(c):
-        #         if np.random.random() < indpb:
-        #             self.layer2[i,j] = 1 - self.layer2[i,j]
-        # for i in range(c):
-        #     if np.random.random() < indpb:
-        #         self.bias2[i] = 1 - self.bias2[i]
+                    self.layer2[i,j] = 1 - self.layer2[i,j]
+        self.bias2, = tools.mutGaussian(self.bias2, mu, sigma, indpb)
         return self,
-
-stats = tools.Statistics(key=lambda ind: ind.fitness.values)
-stats.register("avg", np.mean)
-stats.register("std", np.std)
-stats.register("min", np.min)
-stats.register("max", np.max)
 
 class GAANN(MLPClassifier):
     """GA for ANN
@@ -138,9 +112,9 @@ class GAANN(MLPClassifier):
         def ga(pop=None):
             if pop is None:
                 pop = toolbox.population(n=200)
-            pop, logbook = algorithms.eaSimple(pop, toolbox=toolbox, stats=stats, cxpb=0.6, mutpb=0.16, ngen=150, verbose=False)
-            pop, logbook = algorithms.eaSimple(pop, toolbox=toolbox, stats=stats, cxpb=0.5, mutpb=0.1, ngen=250, verbose=False)
-            pop, logbook = algorithms.eaSimple(pop, toolbox=toolbox, stats=stats, cxpb=0.4, mutpb=0.05, ngen=100, verbose=False)
+            pop, logbook = algorithms.eaSimple(pop, toolbox=toolbox, cxpb=0.6, mutpb=0.17, ngen=100, verbose=False)
+            pop, logbook = algorithms.eaSimple(pop, toolbox=toolbox, cxpb=0.5, mutpb=0.1, ngen=300, verbose=False)
+            pop, logbook = algorithms.eaSimple(pop, toolbox=toolbox, cxpb=0.4, mutpb=0.07, ngen=100, verbose=False)
             return pop, logbook
         return ga
 
@@ -165,4 +139,3 @@ gaann = GAANN()
 gaann.fit(X, Y)
 print(gaann.predict(X[:1,:]), Y[:1,:])
 print(gaann.accuracy(X, Y))
-print(gaann.logbook)
