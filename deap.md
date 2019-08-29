@@ -39,9 +39,15 @@
 
 上面的编码是有缺点的，如果函数定义域不是$[0,2^4]$，那么这种编码就没有效率，可能太窄不能编码某些实数，就是太广编码了定义域以外的实数。有一种二进制编码方案可以解决克服这个缺点。把区间$[a,b]$，分割成$2^{l}-1$等分；一共$2^l$个分点，从小到大，用二进制数表示。精度为$\frac{b-a}{2^l-1}$。误差总是存在的，也可以把区间$[a,b]$，分割成$2^{l}$等分，但不去编码最后一个分点。无限区间，可以表示成一个整数和一个单位长度的区间的组合。
 
+不难发现GA最好的编码区域是平行坐标轴的立方体。如果我们可以把可行域与立方体建立映射关系，那么该可行域就可以有效地编码。能建立立方体到可行域的满射，我们就很满足了，不过我们首先会尝试构造1-1映射。
+
+**思考**
+
+给定若干顶点，如何为这些顶点包围的凸集编码？
+
 **例**
 
-有些多元函数优化问题，可以直接把多元数组作为个体。此时，个体就是自己的编码。在背包问题中，每个变量都是0或1，因此是一个天然的二进制编码。
+有些多元函数优化问题，可以直接把多元数组作为个体。此时，个体就是自己的编码。在背包问题中，每个变量都是0或1，因此是一个天然的二进制编码。在分类问题中，每个变量都是整数，代表类的标签，因此是一个整数编码。
 
 每个个体都有一个非常重要的属性，适应度。
 
@@ -57,7 +63,7 @@
   $$
   F(x)=\sigma(f(x))
   $$
-  其中$\sigma$一般是有界单调函数，如$\tanh$函数。因为$f$通常是有界的，所以也可选用$\sigma(x)=e^x$。这类适应度函数只考虑目标函数。
+  其中$\sigma$一般是有界单调函数，如$\tanh$函数。因为$f$通常是有界的，所以也可选用$\sigma(x)=e^x,x^n$等。这类适应度函数只考虑目标函数。
 
 - 相对变换
 
@@ -81,13 +87,13 @@ $$
   $$
   J(x)=\frac{F(x)}{\sum_{x\in P}F(x)},F(x)=e^{f(x)/T},
   $$
-  其中$T=c^{n-1}T_0,0<c<1$(可选$c=0.99$)，$n$是种群代数。该适应度函数也可以作为个体的选择概率。
+  其中$T=c^{n-1}T_0,0<c<1$(可选$c=0.99$)，$n$是种群代数。该适应度函数也可以作为个体的选择概率。由于$P$是有限的，这其实是一个softmax函数，即$J=\mathrm{softmax}(F)$，其中$F,J$都是按照$x\in P$的某种排列的向量。
 
 
 
 #### 演化算子
 
-所有演化算子都可以概括为$T:H^m\to F(H^n)$，其中$F(H^n)$表示$H^n$上的分布。
+所有演化算子都可以概括为$T:H^m\to L(H^n)$，其中$L(H^n)$表示$H^n$值随机变量。对应的随机映射，作用在$H^m $值随机变量上，也记为$T:L(H^m)\to L(H^n)$。
 
 ##### 选择算子
 
@@ -99,7 +105,7 @@ $$
 $$
 P(X'\in A)=\sum_{X_i\in A}p(X_i)n(X_i)
 $$
-(1) 给出了选择算子的转移概率$P(S(X)|X)$。一般规定$p(x)\sim f(x)$（省略了归一化）， $f$可能是目标函数，也可能是改造过的适应度函数。选择时，我们还可以进一步改造，比如（适应度过小的个体会被直接淘汰）
+(1) 给出了选择算子的转移概率$P(S(X)|X)$。一般规定$p(x)\sim f(x)$（省略了归一化）， $f$可能是目标函数，也可能是改造过的适应度函数。采用变换(4)的选择算子称为Boltzmann选择算子，它和Boltzmann统计有关。选择时，我们还可以进一步改造，比如（适应度过小的个体会被直接淘汰）
 
 
 $$
@@ -109,9 +115,11 @@ f(x),o.w.
 \end{cases}
 $$
 
-
-
 通常选择算子总是优先选取最优个体，这类选择叫排序型选择或单调选择。另一类是非单调选择，如Disruptive选择$p(x)\sim u(x), u(x)=|f(x)-\bar{f}|$, $\bar{f}$是种群平均适应度。这种方案会优先选择较好和较坏的个体。
+
+
+
+选择过程对应于生态系统中的竞争过程。竞争不一定发生于系统中的所有生物，因此可以先确定哪些个体需要进入竞争环节，比如选择子集$Q\subset P$，然后把选择算子作用于$Q$上，补集中的个体作为下一代直接参与变异-杂交。
 
 
 
@@ -173,9 +181,13 @@ $$
 $$
 L=\{x_1x_2\cdots x_l\in H|x_{i_k}=a_{i_k},k=1,2,\cdots,K\}
 $$
-设$\Gamma=\{0,1\}，l=4$, 则个体可能是$0100$或者$1000$。$*0*0=\{0000,1000,0010,1010\}$就是一种个体模式，其中$*$是通配符，表示该位可以是$0$或$1$。个体模式中的确定位个数是该模式的阶数，记为$o(L)=K$，如$o(*0*0)=2$。第一个确定位到最后一个确定位的距离是该模式的定义长度，记为$\delta(L)=i_K-i_1$，如$o(*0*0)=1$。
+设$\Gamma=\{0,1\}，l=4$, 则个体可能是$0100$或者$1000$。$*0*0=\{0000,1000,0010,1010\}=\{x_1x_2x_3x_4|x_2=x_4=0\}$就是一个个体模式，其中$*$是通配符，表示该位可以是$0$或$1$。个体模式中的确定位个数是该模式的阶数，记为$o(L)=K$，如$o(*0*0)=2$。第一个确定位到最后一个确定位的距离是该模式的定义长度，记为$\delta(L)=i_K-i_1$，如$\delta(*0*0)=1$。
 
-个体集$X$的平均适应度$f(X)=\frac{\sum_{x\in X}f(x)}{|X|}$。
+其他形式的编码，也可以引入模式的概念。
+
+**定义(个体集适应度)**
+
+个体集$X$的（平均）适应度$f(X)=\frac{\sum_{x\in X}f(x)}{|X|}$。模式适应度是模式作为个体集的适应度。
 
 **种群增长方程**
 
@@ -193,17 +205,30 @@ N_L(t) \geq N_L(0)(1+C)^t.
 $$
 
 
-这个结论可被表述为：具有低阶、短定义长度，且平均适应度高于种群适应度的模式以指数级增长。
+这个结论可被表述为（积木块假设）：具有低阶、短定义长度，且平均适应度高于种群适应度的模式以指数级增长。
 
 ### 算法框架
 
 #### 基本框架
 
+下面的标准GA算法是GA算法的基本框架。人们总是在它的基础上进行改进。GA的学习也应从这个算法框架开始。
+
+**标准GA算法**
+
+1. 定义参数和遗传操作
+
+2. 初始化种群
+3. 循环下述步骤，直到算法收敛或满足某个条件
+   - 按照适应度，从原种群中选择出一个种群
+   - 对新种群进行杂交操作，随机选择其中若干对个体分别独立进行杂交
+   - 对新种群进行变异操作，随机选择若干个体分别独立进行变异
+   - 操作完之后的新种群覆盖原种群
+
+**注** 由于3是循环操作，选择操作也可以安排在最后一步。
+
 基本框架表明，GA本质上是一个齐次Markov链。
 
 #### 简单实例
-
-
 
 #### 混合算法
 
@@ -288,13 +313,13 @@ print(f'实际最优解: {a}')
 这就是一个多元函数的最小值计算通用程序。读者唯一要改的，是`evaluate`函数，它应该是你的目标函数，其输入是一个`numpy.array` (Individual 是`numpy.ndarray`的子类，操作上与`numpy.array`无异)。例如，把适应度函数改成，
 
 ```python
-b = np.random.random(m)
-A = np.random.random((m, IND_SIZE))
+b = np.random.random(N)
+A = np.random.random((N, IND_SIZE))
 def evaluate(individual):
     return LA.norm(A @ individual-b),
 ```
 
-就可以解方程组$Ax=b$ (最小二乘解).
+就可以解方程组$Ax=b$ (最小二乘解)。随书源码中封装了一个基于GA的线性回归。
 
 **注** 书中代码是为了清楚展示程序内容，不便于过多封装，不影响阅读的代码也省略了。但在上传的代码中，我们实现了封装，可以直接使用。
 
@@ -665,17 +690,21 @@ for ind in clean(best):
 
 设有$N$个点，第$i$个点的坐标是$x_i$, 标记为$C_i$类，定义聚类能量函数：
 $$
-W(C)=\frac{1}{2}\sum_k\sum_{C_i=C_j=k}d(x_i,x_j)\\
-B(C)=\frac{1}{2}\sum_k\sum_{C_i\neq C_j=k}d(x_i,x_j)
+W(C)=\frac{1}{2}\sum_k\sum_{C_i=C_j=k}d(x_i,x_j),\\
+B(C)=\frac{1}{2}\sum_{C_i\neq C_j}d(x_i,x_j),
 $$
-我们的任务是最小化$W(C)$或者最大化$B(C)$.
+其中$d(x,y)$表示$x,y$不相似性，一般是距离的平方。由于$d$总是对称的且$d(x,x)=0$，我们有
+$$
+W(C)=\sum_kW(k)=\sum_k\sum \{d(x_i,x_j)|C_i\neq C_j=k\},
+$$
+我们的任务是最小化$W(C)$或者最大化$B(C)$。
 
 ```python
 # 导入相关模块
 
 # 构造数据
 X = np.random.random((100,2))
-K=3
+K = 3
 
 def evaluate(individual):
     # 计算 W(C)
@@ -715,9 +744,23 @@ print(f'''
 '''
 ```
 
+GA聚类算法并不依赖样本，只依赖距离矩阵$\{d(x_i,x_j)\}$。如果我们事先只知道距离矩阵，那么适应度函数可以定义为：
+
+```python
+from scipy.spatial.distance import squareform
+def evaluate(individual):
+    W = 0
+    for k in range(K):
+        # 计算 Wk
+        Ck = [g==k for g in individual]
+        Dk = squareform(D[Ck, :][:, Ck])
+        W += Dk.sum()
+    return W,
+```
 
 
-聚类算法属于机器学习的范畴。上述程序可用scikit-learn包装一下。下面是一个可行方案。
+
+聚类算法属于机器学习的范畴。上述程序可用scikit-learn包装一下。下面是一个可行方案。其实，本书对绝大多数程序都进行了基于scikit-learn的包装，使之便于使用和性能分析。
 
 ```python
 # 导入相关模块
@@ -793,7 +836,7 @@ class GAKMeans(KMeans):
 
 ### 算法细节改进
 
-`algorithms.eaSimple`是遗传算法最常规的实现。它大致的流程是：
+`algorithms.eaSimple`是DEAP提供的遗传算法最简单的实现。它大致的流程是：
 
 
 - 计算初始种群中个体适应度
@@ -855,33 +898,102 @@ def eaSimple(population, toolbox, cxpb, mutpb, ngen):
     return population
 ```
 
-**注** DEAP作者，考虑到个体的适应度可能被重复计算，因此将适应度存在属性`fitness`里，只有新生成的个体，才会被计算适应度。`individual`是可变变量，会被拷贝一份，修改其中的染色体编码模拟遗传操作，同时删除适应度，这样的个体因为没有了适应度被放入列表`invalid_ind`，只有这些个体被重新计算适应度。
+**注** DEAP作者，考虑到个体的适应度可能被重复计算，因此将适应度存在属性`fitness`里，只有新生成的个体，才会被计算适应度。`individual`是可变变量，会被拷贝一份，修改其中的染色体编码模拟遗传操作，同时删除适应度，这样的个体因为没有了适应度被放入列表`invalid_ind`（这个变量名会让人误以为这是"不可行解"），只有这些个体被重新计算适应度。
+
+知道了源码细节，我们就可以设计自己的算法。本节只给出两个例子，后面会讨论更丰富的内容。
+
+#### 改进 1，参数自适应
+
+参数自适应主要针对交叉概率和变异概率。交叉概率和变异概率不再是固定的值，而是参考总群的适应度，下面给出一个类似于自适应选择算子的定义。
+
+```python
+def adaptive_varAnd(population, toolbox):
+
+    fitnesses = [ind.fitness.values[0] for ind in population]
+    favg = np.mean(fitnesses)
+    fmax = np.max(fitnesses)
+    
+    offspring = [toolbox.clone(ind) for ind in population]
+    # Apply crossover and mutation on the offspring
+    k = fmax-favg+epsilon
+    for i, ff in enumerate(zip(fitnesses[::2], fitnesses[1::2])):
+        f = max(ff)
+        if f <= favg:
+            cxpb = k1
+        else:
+            cxpb = k1 - k2*(f-favg)/ k
+        if random.random() < cxpb:
+            offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1],
+                                                          offspring[i])
+            del offspring[i - 1].fitness.values, offspring[i].fitness.values
+
+    for i, f in enumerate(fitnesses):
+        # mutpb = am(f, favg, fmax)
+        if f <= favg:
+            mutpb = k3
+        else:
+            mutpb = k3 - k4*(f-favg)/k
+
+        if random.random() < mutpb:
+            offspring[i], = toolbox.mutate(offspring[i])
+            del offspring[i].fitness.values
+
+    return offspring
+```
+
+
 
 ### 算法可视化
 
+DEAP内容了可视化方法，它的设计也是高度OOP的。
+
+首先，初始化一个`Statistics`统计量对象。一般它是用来定义个体适应度的统计量的，如种群适应度的平均值。
+
+```python
+stats = tools.Statistics(key=lambda ind: ind.fitness.values)
+```
+
+然后，注册函数，构造你要的统计量。和`toolbox`一样，这里的`register`方法也构造偏函数。下面是比较常见的统计量分别是总群适应度的平均值、标准差、最小值和最大值。
+
+```python
+stats.register("avg", numpy.mean)
+stats.register("std", numpy.std)
+stats.register("min", numpy.min)
+stats.register("max", numpy.max)
+```
+
+最后，调用算法，如`algorithms.eaSimple`，传入参数`stats=stats`。
+
+```python
+pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=0, 
+                                   stats=stats, verbose=True)
+```
+
+统计结果保存在`logbook`（`tools.Logbook`对象）里面。你可以用命令`print(logbook)`直接打印，也可以仿照如下代码绘制，下面的代码绘制了两条曲线，分别是关于遗传代数与总群适应度最小值、最大值和平均值三者的关系曲线。
+
+```python
+gen = logbook.select("gen")
+fit_mins = logbook.select("min")
+fit_maxs = logbook.select("max")
+fit_avgs = logbook.select("avg")
+
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+line1 = ax.plot(gen, fit_mins, "g-", label="Minimum Fitness")
+line2 = ax.plot(gen, fit_maxs, "b-", label="Maximum Fitness")
+line3 = ax.plot(gen, fit_avgs, "r-", label="Average Fitness")
+
+ax.set_xlabel("Generation")
+ax.set_ylabel("Fitness")
+
+lns = line1 + line2 + line3
+labs = [l.get_label() for l in lns]
+ax.legend(lns, labs, loc="center right")
+
+plt.show()
+```
 
 
 
-## DEAP 进阶
-
-### 多线程实现
-
-### 扩展
-
-## DEAP 复杂应用
-
-### 融合智能局部搜索算法
-
-这或许是GA最有意义的话题。如果遗传算法是受Darwin进化论的启发，那么局部搜索的GA是受Lamarck理论的启发。
-
-## DEAP 源码解读
-
-
-
-## 其他遗传算法框架
-
-### 其他框架介绍
-
-### 自制框架
-
-
+`Statistics`和`Logbook`还有更高级的用法(https://deap.readthedocs.io/en/master/tutorials/basic/part3.html)，本书只会在需要时介绍。上面的内容已经足够用于一般用途。
