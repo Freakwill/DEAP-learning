@@ -12,6 +12,7 @@
 2. 在专业化算法缺失的情况下，可以直接使用
 3. 使用者不需要用专业领域知识为算法设定规则。
 4. 本质上是自适应的并行计算
+5. 对问题的性质和可能的变化不会太敏感
 
 ### 基本概念
 
@@ -47,7 +48,23 @@
 
 **例**
 
-有些多元函数优化问题，可以直接把多元数组作为个体。此时，个体就是自己的编码。在背包问题中，每个变量都是0或1，因此是一个天然的二进制编码。在分类问题中，每个变量都是整数，代表类的标签，因此是一个整数编码。
+旅行商问题等策略类问题，其变量通常是不定长的策略序列。我们可以采用不定长编码，其中每个基因代表单个策略，也可以通过增加一个表示不发生状态迁移的特殊基因，使之成为定长编码（这是一种冗余编码，因为染色体和变量之间不再是1-1对应的）。
+
+**例**
+
+有些多元函数优化问题，也可以直接把多元数组作为个体。此时，个体就是自己的编码，分量就是基因。在背包问题中，每个变量都是0或1，因此是一个天然的二进制编码。在分类问题中，每个变量都是整数，代表类的标签，因此是一个整数编码。
+
+
+
+二进制编码不总是"最好的”，尽管是最经典的最简单的。定义在实数轴上的函数，一旦被理解成对应的多元函数(实数映射到一个二进制序列)就可能"面目全非"了。一次偶然变异，可能会在数轴上发生大的跃迁，比如1111变异为0111，意味着跨过一半的区间。这个事实并不一定是坏的，如果我们希望变异应该是一种局部搜索策略，那么就应该避免这种编码。对于多元实变函数来说，二进制编码也会变得很冗长。
+
+
+
+上面提到的编码都是讲个体映射到序列(向量)，实际上编码也可以是树或者更为一般的图。当然，图其实就是边的集合，而集合当然可以用序列来表示。树尤其适用于自然语言、数学公式的编码。对于树编码，虽然也可以简单转化成序列，但是这样做在构造遗传算子的时候会产生困难。遗传编程就是用树结构来编码计算机程序，通过遗传算法可以自动设计程序，类似的应用还有符号回归。
+
+
+
+#### 适应度
 
 每个个体都有一个非常重要的属性，适应度。
 
@@ -129,7 +146,7 @@ $$
 $$
 P(M(X)=Y)=(1-p_m)^{L-d}p_m^d,
 $$
-其中$d$是$X,Y$之间的Hamming距离。特别地，单个基因变异操作为
+其中$d$是$X,Y$之间的 Hamming 距离。注意，单个基因变异操作为
 $$
 P(M(x)=y)=\begin{cases}
 1-p_m,&x=y,\\
@@ -137,7 +154,15 @@ p_m,&x\neq y.
 \end{cases}
 $$
 
+即$M(x)$ 服从 Bernoulli 分布。
+
 显然变异算子可以搜索整个个体空间。
+
+实数值编码下的变异一般定义为
+$$
+M(x)\sim N(x,\sigma^2),
+$$
+而可以简单定义为$M(x)\sim U([a,b])$, 其中$[a,b]$是基因集合。($N，U$分别代表正态分布、一致分布)
 
 ##### 杂交算子
 
@@ -145,9 +170,7 @@ $$
 
 
 
-杂交的过程一般表述为：从种群中选择两个个体作为母体，交换它们的部分基因，产生两个新的个体。
-
-
+杂交的过程一般表述为：从种群中选择两个个体作为母体，交换它们的部分基因，产生两个新的个体。生成新个体的个数并无限定。我们在定义杂交算子时，其实只给出了一个新个体。
 
 杂交算子可分为单点杂交和多点杂交，也可分为定点和不定点。
 
@@ -159,7 +182,7 @@ C(a_1\cdots a_l,b_1\cdots b_l, i)=a_1\cdots a_i b_{i+1}\cdots b_l,
 $$
 其中$i$是杂交点。所谓不定点，就是说$i$是一个随机变量。
 
-1. 单点杂交算子,
+不定点的单点杂交算子,
 
 2. $$
    P\{C(x,y)=z\}=\begin{cases}\frac{ap}{l}, &z\neq x,\\ (1-p)+\frac{ap}{l},&z=x,\end{cases}
@@ -170,6 +193,24 @@ $$
 
 
 人类单个染色体的杂交是单点的。
+
+多点杂交算子的定义就变得繁琐了。这里只写出两点杂交（定点的）的定义。
+$$
+C(a_1\cdots a_l,b_1\cdots b_l, i,j)=a_1\cdots a_i b_{i+1}\cdots b_ja_{j+1}\cdots a_l,
+$$
+两点杂交既没有多点杂交那么繁琐，不易于程序实现，且容易破坏模式，也没有单点杂交那样过于简单，不能产生新模式，因此是最为常用的。
+
+**均匀杂交**
+$$
+C(a_1\cdots a_l,b_1\cdots b_l)=c_1\cdots c_l, c_i\in \{a_i, b_i\}
+$$
+其中$c_i$从$ \{a_i, b_i\}$中随机选取一个。均匀杂交的定义和单点/多点杂交的思路很不一样。
+
+**实数编码单点杂交**
+$$
+C(a_1\cdots a_l,b_1\cdots b_l, i)=c_1\cdots c_l,
+$$
+其中$c_i$是$a_i,b_i$的凸组合，即$c_i=\lambda a_i+(1-\lambda)b_i,  \lambda\sim U[0,1]$。
 
 #### 模式与种群增长方程
 
@@ -213,7 +254,7 @@ $$
 
 下面的标准GA算法是GA算法的基本框架。人们总是在它的基础上进行改进。GA的学习也应从这个算法框架开始。
 
-**标准GA算法**
+**标准 GA 算法**
 
 1. 定义参数和遗传操作
 
@@ -226,11 +267,15 @@ $$
 
 **注** 由于3是循环操作，选择操作也可以安排在最后一步。
 
-基本框架表明，GA本质上是一个齐次Markov链。
+基本框架表明，GA 本质上是一个齐次 Markov 链。
 
 #### 简单实例
 
+
+
 #### 混合算法
+
+
 
 ### 理论分析简介
 
@@ -693,7 +738,7 @@ $$
 W(C)=\frac{1}{2}\sum_k\sum_{C_i=C_j=k}d(x_i,x_j),\\
 B(C)=\frac{1}{2}\sum_{C_i\neq C_j}d(x_i,x_j),
 $$
-其中$d(x,y)$表示$x,y$不相似性，一般是距离的平方。由于$d$总是对称的且$d(x,x)=0$，我们有
+其中$d(x,y)$表示$x,y$不相似性，一般是距离的平方（Kmeans算法中，是 Euclidean 距离平方$\|x-y\|_2^2$）。由于$d$总是对称的且$d(x,x)=0$，我们有
 $$
 W(C)=\sum_kW(k)=\sum_k\sum \{d(x_i,x_j)|C_i\neq C_j=k\},
 $$
@@ -744,7 +789,7 @@ print(f'''
 '''
 ```
 
-GA聚类算法并不依赖样本，只依赖距离矩阵$\{d(x_i,x_j)\}$。如果我们事先只知道距离矩阵，那么适应度函数可以定义为：
+GA聚类算法并不依赖样本，只依赖不相似矩阵$\{d(x_i,x_j)\}$。如果我们事先只知道距离矩阵$D=\{\|x_i-x_j\|\}$，那么适应度函数可以定义为：
 
 ```python
 from scipy.spatial.distance import squareform
@@ -826,11 +871,13 @@ class GAKMeans(KMeans):
 
 
 
-#### 多元时间序列预测
-
-
-
 #### 参数选择
+
+
+
+#### 符号回归
+
+
 
 
 
@@ -943,7 +990,89 @@ def adaptive_varAnd(population, toolbox):
 
 
 
+#### 改进 2，选择方法的改进
+
+
+
+#### 演化策略
+
+演化策略也是一种进化算法，同样包含遗传算法的所有思想和要素。它只是改造了标准遗传算法的选择过程。提出演化策略的学者最初考虑用实数编码，它的杂交算子被移除（作用不大），变异算子也被特别地设计。首先把个体$x\in\R^n$编码为$(x,\sigma)\in\R^{2n}$，然后确定变异算子
+$$
+\begin{cases}
+x_i'\sim x_i+N(0,\sigma_i')\\
+\sigma_i'\sim \sigma_i e^{\tau N(0,1)+\tau'N(0,\sigma')}
+\end{cases}
+$$
+这种编码形式，使得染色体可以表征个体的遗传行为，而不仅仅是（通常）只影响选择过程的适应度。这给我们设计新的编码很大的启发。
+
+演化策略大致分为：$\lambda+\mu$演化策略和$(\lambda,\mu)$演化策略。前者从基数为$\lambda+\mu$的父子混合种群选出$\mu$个个体作为新种群；后者从基数为$\lambda$的子代种群选出$\mu$个个体作为新种群，与标准遗传算法相似。两者优化效果不相上下。这里只写$\lambda+\mu$演化策略的算法。
+
+**演化策略算法**
+
+1. 初始化，含$\mu$个个体的初始种群
+2. 演化迭代
+   - 变异，产生$\mu$个子个体
+   - 计算子个体适应度
+   - 形成含$\lambda+ \mu$个个体的父子混合种群
+   - 从父子混合种群中选择$\mu$个个体作为新种群
+3. 检验停止条件
+
+这里，它已经被改造成一般的算法框架。下面是DEAP的源码（已简化）。`eaMuPlusLambda`实现了$\lambda+\mu$演化策略；`eaMuCommaLambda`实现了$(\lambda,\mu)$演化策略。正体框架和`eaSimple`一样，只是它改用`varOr`。注意`varOr`和`varAnd`的明显区别是，前者每次迭代以一定概率杂交或者变异，产生$\lambda$个体。这$\lambda$个个体会被混入原种群中，最后再进行一次选择得到新种群。
+
+```python
+def varOr(population, toolbox, lambda_, cxpb, mutpb):
+    # cxpb + mutpb <= 1.0
+    
+    offspring = []
+    for _ in range(lambda_):
+        op_choice = random.random()
+        if op_choice < cxpb:            # Apply crossover
+            ind1, ind2 = list(map(toolbox.clone, random.sample(population, 2)))
+            ind1, ind2 = toolbox.mate(ind1, ind2)
+            del ind1.fitness.values
+            offspring.append(ind1)
+        elif op_choice < cxpb + mutpb:  # Apply mutation
+            ind = toolbox.clone(random.choice(population))
+            ind, = toolbox.mutate(ind)
+            del ind.fitness.values
+            offspring.append(ind)
+        else:                           # Apply reproduction
+            offspring.append(random.choice(population))
+
+    return offspring
+  
+def eaMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen):
+
+    # Evaluate the individuals with an invalid fitness
+    invalid_ind = [ind for ind in population if not ind.fitness.valid]
+    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    for ind, fit in zip(invalid_ind, fitnesses):
+        ind.fitness.values = fit
+
+    # Begin the generational process
+    for gen in range(1, ngen + 1):
+        # Vary the population
+        offspring = varOr(population, toolbox, lambda_, cxpb, mutpb)
+
+        # Evaluate the individuals with an invalid fitness
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+
+     # Select the next generation population
+        population[:] = toolbox.select(population + offspring, mu)
+
+    return population
+```
+
+从源码上看，DEAP实现的演化策略只是对标准遗传算法的简单改进，然而它的计算效率让人印象深刻。
+
 ### 算法可视化
+
+可视化方法能让我们直观地观察算法收敛速度，比较不同算法的效率，包括不同参数对算法的影响。虽然可视化方法通常不是最后的证据，但是当人们难以从理论上论证时，它依然是不错的选择。最常见的可视化方法，是绘制算法的收敛曲线。为了消除随机性，我们会对每种算法重复运行 N 次，最终取所得收敛效率的平均值。
+
+#### 用法
 
 DEAP内容了可视化方法，它的设计也是高度OOP的。
 
@@ -997,3 +1126,25 @@ plt.show()
 
 
 `Statistics`和`Logbook`还有更高级的用法(https://deap.readthedocs.io/en/master/tutorials/basic/part3.html)，本书只会在需要时介绍。上面的内容已经足够用于一般用途。
+
+#### 参数对性能的影响
+
+下面，我们利用可视化特性直观检验GA参数对性能的影响。本次测验，GA将用于解最小二乘问题。
+
+```python
+# b, A 随机生成，规模是1000 X 25
+def evaluate(individual):
+    # 求最小二乘解 Ax = b
+    return LA.norm(A @ individual-b),
+toolbox.register("evaluate", evaluate)
+```
+
+因为GA是随机算法，每次都对得到不同的结果，我们对每种参数对应的GA都重复运行100遍，然后取100组适应值（最优个体的适应值）的均值，作为期望值进行绘制。
+
+![benchmark_sga](/Users/william/Folders/mybooks/deap_demo/benchmark_sga.png)
+
+GA 的收敛速度基本上随交叉概率$P_c$的增加而增加。但是考虑时间因素，递增的程度不是那么明显。注意，右图是相对用时，用时长的算法的收敛曲线应该按比例向右拉伸。就本问题而言，交叉概率的推荐值为$0.5$到$0.9$。
+
+![](/Users/william/Folders/mybooks/deap_demo/benchmark_sga2.png)
+
+有些意外的是，变异概率$P_m$也是越大越好，只是没有$P_c$影响大。从$P_m=0.15$开始，算法效率就没有多大提升了。
